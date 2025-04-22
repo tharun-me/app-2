@@ -1,0 +1,36 @@
+version: 0.2
+
+env:
+  variables:
+    REPO_URL: "${REPO_URL}"
+    IMAGE_TAG: "${IMAGE_TAG}"
+
+phases:
+  install:
+    commands:
+      - echo Installing AWS CLI...
+      - apt-get update -y
+      - apt-get install -y awscli
+
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPO_URL}
+
+  build:
+    commands:
+      - echo Building the Docker image...
+      - docker build -t ${REPO_URL}:${IMAGE_TAG} .
+      - docker tag ${REPO_URL}:${IMAGE_TAG} ${REPO_URL}:${IMAGE_TAG}
+      - echo Docker image built successfully
+
+  post_build:
+    commands:
+      - echo Pushing Docker image to ECR...
+      - docker push ${REPO_URL}:${IMAGE_TAG}
+      - echo Writing image definitions file...
+      - printf '[{"name":"team-pravin-ecs-service","imageUri":"%s"}]' ${REPO_URL}:${IMAGE_TAG} > imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json
